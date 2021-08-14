@@ -6,7 +6,7 @@
 #   pyftdi
 #
 """
-<plugin key="HTU20D_FTDI" name="HTU20D Temp/humidity sensor via I2C" author="Alex Nijmeijer" version="1.0.0">
+<plugin key="HTU20D_FTDI" name="HTU20D Temp/humidity sensor via I2C" author="Alex Nijmeijer" version="1.0.3">
     <params>
         <param field="Address" label="FTDI Port" width="150px" required="true" default="ftdi://ftdi:232h:1/1"/>
     </params>
@@ -38,24 +38,38 @@ class BasePlugin:
             return True
         else:
             #print ("CRC error")
+            Domoticz.Log("CRC error")
             return False
 
-
+    def htu20_softreset(self):
+        Domoticz.Log("HTU20 Soft Reset")
+        self.i2c.write(0x40,[0xFE]) # Soft reset
+        time.sleep(1)
 
     def onStart(self):
         Domoticz.Log("onStart called FTDI-address=" + Parameters["Address"])
-
-        self.i2c = I2c.I2cController()
-        self.i2c.configure(Parameters["Address"], frequency=10e3) # Address example "ftdi://ftdi:232h:1/1"
 
         if (len(Devices) == 0):
           Domoticz.Device(Name="Temp+Hum", Unit=1, Type=82, Subtype=1).Create()
           Domoticz.Log("Devices created.")
 
-        DumpConfigToLog()
+        #DumpConfigToLog()
         #for Device in Devices:
         #  Devices[Device].Update(nValue=Devices[Device].nValue, sValue=Devices[Device].sValue, TimedOut=1)
-        Domoticz.Heartbeat(5)
+        
+        try:
+          self.i2c = I2c.I2cController()
+          self.i2c.configure(Parameters["Address"], frequency=10e3) # Address example "ftdi://ftdi:232h:1/1"
+
+          self.htu20_softreset()
+        except: 
+          Domoticz.Log("I2C Init failed")
+          self.Heartbeat_Sentry=False
+        else:  
+          # No error: start Heartbeat  
+          Domoticz.Log("No error in init, starting Heartbeat")
+          self.Heartbeat_Sentry=True
+          Domoticz.Heartbeat(15)
 
     def onStop(self):
         Domoticz.Log("onStop called")
@@ -76,7 +90,10 @@ class BasePlugin:
     def onDisconnect(self, Connection):
         Domoticz.Log("onDisconnect called")
 
+
+
     def onHeartbeat(self):
+      if self.Heartbeat_Sentry : 
         #Domoticz.Log("onHeartbeat called")
         #take measurement
         #self.i2c.write(0x27,[])
@@ -91,6 +108,7 @@ class BasePlugin:
             
             #perform humidity measurement
             a=self.i2c.write(0x40,[0xe5])
+            time.sleep(1)
             #readout
             hum_data=self.i2c.read(0x40,3)
             data = (hum_data[0] <<8 | hum_data[1]) 
@@ -118,7 +136,7 @@ class BasePlugin:
           Domoticz.Log("onHeartbeat: iteration " + str(5-i))
 
         except:
-          Domoticz.Log("I2c read failed")
+          Domoticz.Log("onHeartbeat: I2c read failed")
           status=5
 
         # Only when we know it is a valid sample, forward it
