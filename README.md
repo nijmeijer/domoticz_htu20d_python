@@ -18,7 +18,7 @@ Install
 -----------
 in /etc/udev/rules.d/99-ftdi.rules:
 
-SUBSYSTEM="usb", ATTRS{idVendor}="0403", ATTRS{idProduct}="6014", RUN+="modprobe usbfs" ,  MODE:="0666", GROUP:="dialout"
+SUBSYSTEM="usb", ATTRS{idVendor}="0403", ATTRS{idProduct}="6014", RUN+="modprobe ftdi_sio" ,  MODE:="0666", GROUP:="dialout"
 
 Where "dailout" is the group to which the domoticz-user belongs
 
